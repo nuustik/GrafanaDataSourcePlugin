@@ -8,9 +8,15 @@ export interface CdpQuery extends DataQuery {
 }
 
 export const CdpDefaultQuery: Partial<CdpQuery> = {
+  path: '',
   capacity: 10000,
   fs: 10,
   sampleRate: 10
+}
+
+export interface CdpVariableQuery {
+  path: string;
+  modelName: string;
 }
 
 /**
