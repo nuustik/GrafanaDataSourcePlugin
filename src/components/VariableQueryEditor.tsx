@@ -29,6 +29,7 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
           onBlur={saveQuery}
           onChange={handleChange}
           value={state.path}
+          placeholder="CDP node path to search for children. E.g. AppName.CompName.*"
         />
       </div>
       <div className="gf-form">
@@ -39,6 +40,18 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
           onBlur={saveQuery}
           onChange={handleChange}
           value={state.modelName}
+          placeholder="Optional, filter by CDP node model name. E.g. CDPSignal<double>"
+        />
+      </div>
+      <div className="gf-form">
+        <span className="gf-form-label width-10">Remove Prefix</span>
+        <input
+          name="removedPrefix"
+          className="gf-form-input"
+          onBlur={saveQuery}
+          onChange={handleChange}
+          value={state.removedPrefix}
+          placeholder="Optional, remove prefix from results. E.g AppName.CompName."
         />
       </div>
     </>

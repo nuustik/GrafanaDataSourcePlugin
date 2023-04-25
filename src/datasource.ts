@@ -22,24 +22,77 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
     this.client = new studio.api.Client(instanceSettings.jsonData.host);
   }
 
-  async fetchChildrenNames(path: string, modelName: string): Promise<string[]> {
-    let names: string[] = [];
-    await this.client.find(path).then((node: any) => {
-      node.forEachChild((child: any) => {
-        if (!modelName) {
-          names.push(child.name());
-        } else if (child.info().type_name === modelName) {
-          names.push(child.name());
-        }
-      });
-    });
-    return names;
+  escapeRegExp(string: string): string {
+    return string.replace(/[*.+?^${}()|[\]\\]/g, '\\$&');
   }
 
-  async metricFindQuery(query: CdpVariableQuery, options?: any) {
-    const names = await this.fetchChildrenNames(query.path, query.modelName);
-    const values = names.map(n => ({ text: n }));
-    return values;
+  async fetchChildrenNames(query: string): Promise<string[]> {
+    const parts = query.split('.');
+    if (parts.length === 0) {
+      return [];
+    }
+      
+    return await parts.slice(0).reduce(async (promise: Promise<string[]>, part: string) => {
+      const paths = await promise;
+      const promises = paths.map(async (path: string) => {
+        let newPaths: string[] = [];
+        let node: any;
+        if (path.length === 0) {
+          node = await this.client.root();
+        } else {
+          node = await this.client.find(path);
+        }
+        node.forEachChild((child: any) => {       
+          let regExp: string;
+          let longName: string;
+          if (path.length === 0) {
+            regExp = part.replace('*', '.*');
+            longName =  child.name();
+          }
+          else {
+            regExp = this.escapeRegExp(path + '.') + part.replace('*', '.*');
+            longName =  path + '.' + child.name();
+          }
+          const matches = longName.match(regExp);
+          if (matches) {
+            newPaths.push(matches[0]);
+          }
+        });
+        return newPaths;
+      });
+      return await Promise.all(promises).then<string[]>((paths: string[][]) => {
+        return paths.flat(1);
+      });
+    }, Promise.resolve(['']));
+  }
+
+  async filterByModelName(cdpPaths: string[], modelName: string) {
+    if (!modelName) {
+      return cdpPaths;
+    }
+    const promises = cdpPaths.map(async (path: any) => {
+      const node = await this.client.find(path);
+      if (node.info().type_name === modelName) {
+        return path;
+      }
+      return undefined;
+    });
+    return await Promise.all(promises).then<string[]>((paths: string[]) => {
+      return paths.flat(1).filter(path => !!path);
+    });
+  }
+
+  removePrefixes(paths: string[], removedPrefix: string) {
+    let cdpPaths: string[] = [];
+    paths.forEach((path: string) => {
+      if (path.startsWith(removedPrefix)) {
+        cdpPaths.push(path.slice(removedPrefix.length));
+      }
+      else {
+        cdpPaths.push(path);
+      }
+    });
+    return cdpPaths;
   }
 
   resolveQueryPath(query: string): string[] {
@@ -61,6 +114,14 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
       return newResult;
     }, []);
     return cdpPaths;
+  }
+
+  async metricFindQuery(query: CdpVariableQuery, options?: any) {
+    const cdpPaths = await this.fetchChildrenNames(query.path);
+    const filteredPaths = await this.filterByModelName(cdpPaths, query.modelName);
+    const removedPrefixes = this.removePrefixes(filteredPaths, query.removedPrefix);
+    const values = removedPrefixes.map(n => ({ text: n }));
+    return values;
   }
 
   query(options: DataQueryRequest<CdpQuery>): Observable<DataQueryResponse> {

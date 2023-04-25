@@ -17,6 +17,7 @@ export const CdpDefaultQuery: Partial<CdpQuery> = {
 export interface CdpVariableQuery {
   path: string;
   modelName: string;
+  removedPrefix: string;
 }
 
 /**
