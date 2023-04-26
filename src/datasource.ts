@@ -8,7 +8,13 @@ import {
   LoadingState,
 } from '@grafana/data';
 
-import { CdpQuery, CdpDataSourceOptions, CdpDefaultQuery, CdpVariableQuery } from './types';
+import { 
+  CdpQuery, 
+  CdpDataSourceOptions, 
+  CdpDefaultQuery, 
+  CdpVariableQuery
+} from './types';
+
 import { getTemplateSrv } from '@grafana/runtime';
 import { merge, Observable } from 'rxjs';
 import { defaults } from 'lodash';
@@ -66,16 +72,23 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
     }, Promise.resolve(['']));
   }
 
-  async filterByModelName(cdpPaths: string[], modelName: string) {
-    if (!modelName) {
+  async filterByModelNames(cdpPaths: string[], modelNames: string) {
+    if (!modelNames || modelNames.length === 0) {
       return cdpPaths;
     }
+    const names = modelNames.split(';');
     const promises = cdpPaths.map(async (path: any) => {
       const node = await this.client.find(path);
-      if (node.info().type_name === modelName) {
-        return path;
-      }
-      return undefined;
+      let matchedPath = undefined;
+      for (let i = 0; i < names.length; i++) {
+        let regExp = names[i].replace('*', '.*');
+        const matches = node.info().type_name.match(regExp);
+        if (matches) {
+          matchedPath = path;
+          break;
+        }
+      };
+      return matchedPath;
     });
     return await Promise.all(promises).then<string[]>((paths: string[]) => {
       return paths.flat(1).filter(path => !!path);
@@ -118,7 +131,7 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
 
   async metricFindQuery(query: CdpVariableQuery, options?: any) {
     const cdpPaths = await this.fetchChildrenNames(query.path);
-    const filteredPaths = await this.filterByModelName(cdpPaths, query.modelName);
+    const filteredPaths = await this.filterByModelNames(cdpPaths, query.modelNames);
     const removedPrefixes = this.removePrefixes(filteredPaths, query.removedPrefix);
     const values = removedPrefixes.map(n => ({ text: n }));
     return values;

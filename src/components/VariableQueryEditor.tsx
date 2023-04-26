@@ -10,7 +10,7 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
   const [state, setState] = useState(query);
 
   const saveQuery = () => {
-    onChange(state, `${state.modelName} (${state.path})`);
+    onChange(state, `${state.modelNames} (${state.path})`);
   };
 
   const handleChange = (event: React.FormEvent<HTMLInputElement>) =>
@@ -35,12 +35,12 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
       <div className="gf-form">
         <span className="gf-form-label width-10">Model Name</span>
         <input
-          name="modelName"
+          name="modelNames"
           className="gf-form-input"
           onBlur={saveQuery}
           onChange={handleChange}
-          value={state.modelName}
-          placeholder="Optional, filter by CDP node model name. E.g. CDPSignal<double>"
+          value={state.modelNames}
+          placeholder="Optional, filter by CDP node model names. E.g. CDPSignal*;CDPSignalChannel<double>"
         />
       </div>
       <div className="gf-form">

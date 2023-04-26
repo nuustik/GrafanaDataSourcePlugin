@@ -16,13 +16,10 @@ export const CdpDefaultQuery: Partial<CdpQuery> = {
 
 export interface CdpVariableQuery {
   path: string;
-  modelName: string;
+  modelNames: string;
   removedPrefix: string;
 }
 
-/**
- * These are options configured for each DataSource instance
- */
 export interface CdpDataSourceOptions extends DataSourceJsonData {
   host: string;
 }
