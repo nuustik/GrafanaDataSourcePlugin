@@ -106,7 +106,7 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
       const node = await this.client.find(path);
       let matchedPath = undefined;
       for (let i = 0; i < names.length; i++) {
-        let regExp = names[i].replace('*', '.*');
+        let regExp = names[i].trim().replace('*', '.*');
         const matches = node.info().type_name.match(regExp);
         if (matches) {
           matchedPath = path;
@@ -154,6 +154,20 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
     return cdpPaths;
   }
 
+  getFieldType(node: any) {
+    switch (node.info().value_type) {
+      case studio.api.eSTRING: {
+        return FieldType.string;
+      }
+      case studio.api.eBOOL: {
+        return FieldType.boolean;
+      }
+      default: {
+        return FieldType.number;
+      }
+    }
+  }
+
   async metricFindQuery(query: CdpVariableQuery, options?: any) {
     const cdpPaths = await this.fetchChildrenNames(query.path);
     const filteredPaths = await this.filterByModelNames(cdpPaths, query.modelNames);
@@ -169,7 +183,6 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
       const cdpPaths = this.resolveQueryPath(getTemplateSrv().replace(query.path, options.scopedVars));
       cdpPaths.forEach((path: string) => {
         const observable = new Observable<DataQueryResponse>((subscriber) => {
-          let lastMs = 0;
           this.client.find(path).then((node: any) => {
             const frame = new CircularDataFrame({
               append: 'tail',
@@ -179,21 +192,17 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
             frame.name = node.name();
             frame.refId = path;
             frame.addField({ name: 'time', type: FieldType.time });
-            frame.addField({ name: 'value', type: FieldType.number });
+            frame.addField({ name: 'value', type: this.getFieldType(node) });
 
             node.subscribeToValues((value: any, timestamp: any) => {
-              const timeMs = Math.floor(timestamp/1000/1000);
-              if (timeMs !== lastMs)
-              {
-                lastMs = timeMs;
-                frame.add({ time: timeMs, value: value });
-      
-                subscriber.next({
-                  data: [frame],
-                  key: path,
-                  state: LoadingState.Streaming,
-                });
-              }
+            const timeMs = Math.floor(timestamp/1000/1000);
+              frame.add({ time: timeMs, value: value });
+    
+              subscriber.next({
+                data: [frame],
+                key: path,
+                state: LoadingState.Streaming,
+              });
             }, target.fs, target.sampleRate);
           });
         });

@@ -15,4 +15,5 @@ Grafana Live must be enabled from settings menu for dashboards to refresh contin
 
 ## Using the CDP Data Source
 From panel query settings select CDP as data source and specify CDP Routing in query attributes.
+For dynamic dashoards use Grafana variables.
 
