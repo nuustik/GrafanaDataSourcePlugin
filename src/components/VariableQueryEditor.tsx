@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CdpVariableQuery } from './../types';
+import { InlineField, Input } from '@grafana/ui';
 
 interface VariableQueryProps {
   query: CdpVariableQuery;
@@ -20,40 +21,37 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
     });
 
   return (
-    <>
-      <div className="gf-form">
-        <span className="gf-form-label width-10">Node Path</span>
-        <input
+    <div className="gf-form-group">
+      <InlineField label="Node Path" labelWidth={16} tooltip="CDP node path to search for children">
+        <Input
           name="path"
-          className="gf-form-input"
-          onBlur={saveQuery}
-          onChange={handleChange}
           value={state.path}
-          placeholder="CDP node path to search for children. E.g. AppName.CompName.*"
+          width={47}
+          onChange={handleChange}
+          onBlur={saveQuery}
+          placeholder="AppName.CompName.*"
         />
-      </div>
-      <div className="gf-form">
-        <span className="gf-form-label width-10">Model Name</span>
-        <input
+      </InlineField>
+      <InlineField label="Model Name" labelWidth={16} tooltip="Optional, filter results by CDP node model names">
+        <Input
           name="modelNames"
-          className="gf-form-input"
-          onBlur={saveQuery}
-          onChange={handleChange}
           value={state.modelNames}
-          placeholder="Optional, filter by CDP node model names. E.g. CDPSignal*;CDPSignalChannel<double>"
-        />
-      </div>
-      <div className="gf-form">
-        <span className="gf-form-label width-10">Remove Prefix</span>
-        <input
-          name="removedPrefix"
-          className="gf-form-input"
-          onBlur={saveQuery}
+          width={47}
           onChange={handleChange}
-          value={state.removedPrefix}
-          placeholder="Optional, remove prefix from results. E.g AppName.CompName."
+          onBlur={saveQuery}
+          placeholder="CDPParameter;CDPSignal*"
         />
-      </div>
-    </>
+      </InlineField>
+      <InlineField label="Remove Prefix" labelWidth={16} tooltip="Optional, remove prefix from results">
+        <Input
+          name="removedPrefix"
+          value={state.removedPrefix}
+          width={47}
+          onChange={handleChange}
+          onBlur={saveQuery}
+          placeholder="AppName.CompName."
+        />
+      </InlineField>
+    </div>
   );
 };

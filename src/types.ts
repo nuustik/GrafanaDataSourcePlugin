@@ -22,4 +22,6 @@ export interface CdpVariableQuery {
 
 export interface CdpDataSourceOptions extends DataSourceJsonData {
   host: string;
+  username: string;
+  password: string;
 }

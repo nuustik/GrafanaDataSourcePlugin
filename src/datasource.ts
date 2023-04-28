@@ -20,12 +20,37 @@ import { merge, Observable } from 'rxjs';
 import { defaults } from 'lodash';
 import studio from 'cdp-client';
 
+class NotificationListener {
+  username: string;
+  password: string;
+
+  constructor(instanceSettings: DataSourceInstanceSettings<CdpDataSourceOptions>) {
+    this.username = instanceSettings.jsonData.username;
+    this.password = instanceSettings.jsonData.password;
+  }
+
+  applicationAcceptanceRequested = async (): Promise<void> => {
+    return Promise.resolve();
+  }
+
+  credentialsRequested = async (request: any): Promise<{Username: string, Password: string}> => {
+    return new Promise((resolve) => {
+      if (request.userAuthResult().code() === studio.api.CREDENTIALS_REQUIRED) {
+        resolve({Username: this.username, Password: this.password});
+      }
+      if (request.userAuthResult().code() === studio.api.REAUTHENTICATIONREQUIRED) {
+        alert("Password expired! Please change the password in CDP application and update the data source configuration.");
+      }
+    });
+  }
+}
+
 export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
   client: any;
 
   constructor(instanceSettings: DataSourceInstanceSettings<CdpDataSourceOptions>) {
     super(instanceSettings);
-    this.client = new studio.api.Client(instanceSettings.jsonData.host);
+    this.client = new studio.api.Client(instanceSettings.jsonData.host, new NotificationListener(instanceSettings));
   }
 
   escapeRegExp(string: string): string {
