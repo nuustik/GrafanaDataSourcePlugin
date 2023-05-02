@@ -23,6 +23,7 @@ import studio from 'cdp-client';
 class NotificationListener {
   username: string;
   password: string;
+  lastError!: string;
 
   constructor(instanceSettings: DataSourceInstanceSettings<CdpDataSourceOptions>) {
     this.username = instanceSettings.jsonData.username;
@@ -35,22 +36,34 @@ class NotificationListener {
 
   credentialsRequested = async (request: any): Promise<{Username: string, Password: string}> => {
     return new Promise((resolve) => {
-      if (request.userAuthResult().code() === studio.api.CREDENTIALS_REQUIRED) {
+      if (request.userAuthResult().code() === studio.api.CREDENTIALS_REQUIRED ||
+          request.userAuthResult().code() === studio.api.REAUTHENTICATIONREQUIRED) {
         resolve({Username: this.username, Password: this.password});
-      }
-      if (request.userAuthResult().code() === studio.api.REAUTHENTICATIONREQUIRED) {
-        alert("Password expired! Please change the password in CDP application and update the data source configuration.");
+        this.lastError = '';
+      } else {
+        this.lastError = request.userAuthResult().text();
       }
     });
+  }
+
+  getLastError = async (result?: any): Promise<any> => {
+    if (result !== undefined) {
+      return result;
+    }
+    return new Promise((resolve) => setTimeout(resolve, 100))
+      .then(() => Promise.resolve(this.lastError)) 
+      .then((res: any) => this.getLastError(res));
   }
 }
 
 export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
   client: any;
+  notificationListener: any;
 
   constructor(instanceSettings: DataSourceInstanceSettings<CdpDataSourceOptions>) {
     super(instanceSettings);
-    this.client = new studio.api.Client(instanceSettings.jsonData.host, new NotificationListener(instanceSettings));
+    this.notificationListener = new NotificationListener(instanceSettings)
+    this.client = new studio.api.Client(instanceSettings.jsonData.host, this.notificationListener);
   }
 
   escapeRegExp(string: string): string {
@@ -214,10 +227,11 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
   }
 
   async testDatasource() {
-    // Implement a health check for your data source.
-    return {
-      status: 'success',
-      message: 'Success',
+    const error = await this.notificationListener.getLastError();
+    if (error.length === 0) {
+      return { status: 'success', message: 'Success'};
+    } else {
+      return { status: 'error', message: error};
     };
   }
 }
