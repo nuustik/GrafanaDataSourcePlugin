@@ -169,10 +169,10 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
 
   getFieldType(node: any) {
     switch (node.info().value_type) {
-      case studio.api.eSTRING: {
+      case studio.protocol.CDPValueType.eSTRING: {
         return FieldType.string;
       }
-      case studio.api.eBOOL: {
+      case studio.protocol.CDPValueType.eBOOL: {
         return FieldType.boolean;
       }
       default: {
@@ -208,7 +208,7 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
             frame.addField({ name: 'value', type: this.getFieldType(node) });
 
             node.subscribeToValues((value: any, timestamp: any) => {
-            const timeMs = Math.floor(timestamp/1000/1000);
+              const timeMs = Math.floor(timestamp/1000/1000);
               frame.add({ time: timeMs, value: value });
     
               subscriber.next({
