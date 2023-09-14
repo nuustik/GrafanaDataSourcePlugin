@@ -201,28 +201,38 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
       const cdpPaths = this.resolveQueryPath(getTemplateSrv().replace(query.path, options.scopedVars));
       cdpPaths.forEach((path: string) => {
         const observable = new Observable<DataQueryResponse>((subscriber) => {
-          this.client.find(path).then((node: any) => {
-            const frame = new CircularDataFrame({
-              append: 'tail',
-              capacity: query.capacity,
-            });
 
+          const frame = new CircularDataFrame({
+            append: 'tail',
+            capacity: query.capacity,
+          });
+
+          const subscriptionFn = (value: any, timestamp: any) => {
+            const timeMs = Math.floor(timestamp/1000/1000);
+            frame.add({ time: timeMs, value: value });
+  
+            subscriber.next({
+              data: [frame],
+              key: path,
+              state: LoadingState.Streaming,
+            });
+          };
+
+          this.client.find(path).then((node: any) => {
             frame.name = node.name();
             frame.refId = path;
             frame.addField({ name: 'time', type: FieldType.time });
             frame.addField({ name: 'value', type: this.getFieldType(node) });
 
-            node.subscribeToValues((value: any, timestamp: any) => {
-              const timeMs = Math.floor(timestamp/1000/1000);
-              frame.add({ time: timeMs, value: value });
-    
-              subscriber.next({
-                data: [frame],
-                key: path,
-                state: LoadingState.Streaming,
-              });
-            }, target.fs, target.sampleRate);
+            node.subscribeToValues(subscriptionFn, target.fs, target.sampleRate);
           });
+
+          return () => {
+            this.client.find(path).then((node: any) => {
+              node.unsubscribeFromValues(subscriptionFn);
+            });
+          }
+
         });
         observables.push(observable);
       });
