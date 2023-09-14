@@ -98,7 +98,7 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
             longName =  path + '.' + child.name();
           }
           const matches = longName.match(regExp);
-          if (matches) {
+          if (matches && !newPaths.includes(matches[0])) {
             newPaths.push(matches[0]);
           }
         });
@@ -182,11 +182,16 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
   }
 
   async metricFindQuery(query: CdpVariableQuery, options?: any) {
-    const cdpPaths = await this.fetchChildrenNames(query.path);
-    const filteredPaths = await this.filterByModelNames(cdpPaths, query.modelNames);
-    const removedPrefixes = this.removePrefixes(filteredPaths, query.removedPrefix);
-    const values = removedPrefixes.map(n => ({ text: n }));
-    return values;
+    const resolvedPaths = this.resolveQueryPath(getTemplateSrv().replace(query.path, options.scopedVars));
+    const result = resolvedPaths.map(async (path: any) => {
+      const cdpPaths = await this.fetchChildrenNames(path);
+      const filteredPaths = await this.filterByModelNames(cdpPaths, query.modelNames);
+      return this.removePrefixes(filteredPaths, query.removedPrefix);
+    });
+    let paths = await Promise.all(result).then<string[]>((paths: string[][]) => {
+      return paths.flat(1);
+    });
+    return paths.map(n => ({ text: n }));
   }
 
   query(options: DataQueryRequest<CdpQuery>): Observable<DataQueryResponse> {
