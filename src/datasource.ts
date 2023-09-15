@@ -70,7 +70,7 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
     return string.replace(/[*.+?^${}()|[\]\\]/g, '\\$&');
   }
 
-  async fetchChildrenNames(query: string): Promise<string[]> {
+  async fetchChildrenPaths(query: string): Promise<string[]> {
     const parts = query.split('.');
     if (parts.length === 0) {
       return [];
@@ -86,7 +86,7 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
         } else {
           node = await this.client.find(path);
         }
-        node.forEachChild((child: any) => {       
+        node.forEachChild((child: any) => {      
           let regExp: string;
           let longName: string;
           if (path.length === 0) {
@@ -133,17 +133,22 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
     });
   }
 
-  removePrefixes(paths: string[], removedPrefix: string) {
-    let cdpPaths: string[] = [];
-    paths.forEach((path: string) => {
+  async fetchValues(cdpPaths: string[], removedPrefix: string) {
+    const promises = cdpPaths.map(async (path: string) => {
+      let node = await this.client.find(path);
+      let value = await node.requestValue();
+      let p = path;
+
       if (path.startsWith(removedPrefix)) {
-        cdpPaths.push(path.slice(removedPrefix.length));
+        p = path.slice(removedPrefix.length);
       }
-      else {
-        cdpPaths.push(path);
+      if (node.info().value_type === studio.protocol.CDPValueType.eUNDEFINED) {
+        return {text: p};
+      } else {
+        return {text: p, value: value};
       }
     });
-    return cdpPaths;
+    return await Promise.all(promises);
   }
 
   resolveQueryPath(query: string): string[] {
@@ -183,15 +188,13 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
 
   async metricFindQuery(query: CdpVariableQuery, options?: any) {
     const resolvedPaths = this.resolveQueryPath(getTemplateSrv().replace(query.path, options.scopedVars));
-    const result = resolvedPaths.map(async (path: any) => {
-      const cdpPaths = await this.fetchChildrenNames(path);
+    const results = resolvedPaths.map(async (path: any) => {
+      const cdpPaths = await this.fetchChildrenPaths(path);
       const filteredPaths = await this.filterByModelNames(cdpPaths, query.modelNames);
-      return this.removePrefixes(filteredPaths, query.removedPrefix);
+      return await this.fetchValues(filteredPaths, query.removedPrefix);
     });
-    let paths = await Promise.all(result).then<string[]>((paths: string[][]) => {
-      return paths.flat(1);
-    });
-    return paths.map(n => ({ text: n }));
+    let r = await Promise.all(results);
+    return r.flat(1);
   }
 
   query(options: DataQueryRequest<CdpQuery>): Observable<DataQueryResponse> {
