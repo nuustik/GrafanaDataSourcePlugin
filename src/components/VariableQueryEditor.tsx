@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { CdpVariableQuery } from './../types';
-import { InlineField, Input } from '@grafana/ui';
+import { CdpVariableQuery, CdpDefaultVariableQuery, } from './../types';
+import { InlineField, Input, Select, ActionMeta } from '@grafana/ui';
+import { SelectableValue } from '@grafana/data';
 
 interface VariableQueryProps {
   query: CdpVariableQuery;
@@ -8,7 +9,7 @@ interface VariableQueryProps {
 }
 
 export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, query }) => {
-  const [state, setState] = useState(query);
+  const [state, setState] = useState({...CdpDefaultVariableQuery, ...query});
 
   const saveQuery = () => {
     onChange(state, `${state.modelNames} (${state.path})`);
@@ -19,6 +20,13 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
       ...state,
       [event.currentTarget.name]: event.currentTarget.value,
     });
+
+  const handleSelectChange = (value: SelectableValue<string>, actionMeta: ActionMeta) => {
+    setState({
+      ...state,
+      type: value.value as CdpVariableQuery["type"],
+    });
+  }
 
   return (
     <div className="gf-form-group">
@@ -50,6 +58,18 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
           onChange={handleChange}
           onBlur={saveQuery}
           placeholder="AppName.CompName."
+        />
+      </InlineField>
+      <InlineField label="Returns" labelWidth={16} tooltip="Return node names, node values or both in JSON">
+        <Select
+          value={state.type}
+          options={[
+            { label: 'Names', value: 'Names' },
+            { label: 'Values', value: 'Values' },
+            { label: 'JSON', value: 'JSON' }
+          ]}
+          onChange={handleSelectChange}
+          onBlur={saveQuery}
         />
       </InlineField>
     </div>

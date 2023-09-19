@@ -110,16 +110,15 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
     }, Promise.resolve(['']));
   }
 
-  async filterByModelNames(cdpPaths: string[], modelNames: string) {
-    if (!modelNames || modelNames.length === 0) {
+  async filterByModelNames(cdpPaths: string[], modelNames: string[]) {
+    if (modelNames.length === 0 || modelNames.length === 0) {
       return cdpPaths;
     }
-    const names = modelNames.split(';');
     const promises = cdpPaths.map(async (path: any) => {
       const node = await this.client.find(path);
       let matchedPath = undefined;
-      for (let i = 0; i < names.length; i++) {
-        let regExp = names[i].trim().replace('*', '.*');
+      for (let i = 0; i < modelNames.length; i++) {
+        let regExp = modelNames[i].trim().replace('*', '.*');
         const matches = node.info().type_name.match(regExp);
         if (matches) {
           matchedPath = path;
@@ -133,20 +132,18 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
     });
   }
 
-  async fetchValues(cdpPaths: string[], removedPrefix: string) {
+  async fetchValues(cdpPaths: string[], removedPrefix: string[]) {
     const promises = cdpPaths.map(async (path: string) => {
       let node = await this.client.find(path);
       let value = await node.requestValue();
       let p = path;
 
-      if (path.startsWith(removedPrefix)) {
-        p = path.slice(removedPrefix.length);
+      let result = removedPrefix.filter(s => path.startsWith(s));
+      if (result.length) {
+        const longestPrefixLength = Math.max(...(result.map(el => el.length)));
+        p = path.slice(longestPrefixLength);
       }
-      if (node.info().value_type === studio.protocol.CDPValueType.eUNDEFINED) {
-        return {text: p};
-      } else {
-        return {text: p, value: value};
-      }
+      return {path: p, value: value};
     });
     return await Promise.all(promises);
   }
@@ -188,13 +185,29 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
 
   async metricFindQuery(query: CdpVariableQuery, options?: any) {
     const resolvedPaths = this.resolveQueryPath(getTemplateSrv().replace(query.path, options.scopedVars));
+    const resolvedPrefixes = this.resolveQueryPath(getTemplateSrv().replace(query.removedPrefix, options.scopedVars));
+    const resolvedModelNames = this.resolveQueryPath(getTemplateSrv().replace(query.modelNames, options.scopedVars)).map((models: any) => {
+      return models.split(';');
+    }).flat(1);
+
     const results = resolvedPaths.map(async (path: any) => {
       const cdpPaths = await this.fetchChildrenPaths(path);
-      const filteredPaths = await this.filterByModelNames(cdpPaths, query.modelNames);
-      return await this.fetchValues(filteredPaths, query.removedPrefix);
+      const filteredPaths = await this.filterByModelNames(cdpPaths, resolvedModelNames);
+      return await this.fetchValues(filteredPaths, resolvedPrefixes);
     });
-    let r = await Promise.all(results);
-    return r.flat(1);
+
+    const all = await Promise.all(results);
+    return all.flat(1).map((object: any) => {
+      if (query.type === "Names") {
+        return {text: object.path};
+      } else if (query.type === "Values") {
+        return {text: object.value};
+      } else {
+        return {text: object.path, value: '{text: '+object.path+', value: '+object.value+'}'};
+      }
+    }).filter((object: any) => {
+      return object.text !== undefined;
+    });
   }
 
   query(options: DataQueryRequest<CdpQuery>): Observable<DataQueryResponse> {

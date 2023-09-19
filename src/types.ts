@@ -17,7 +17,15 @@ export const CdpDefaultQuery: Partial<CdpQuery> = {
 export interface CdpVariableQuery {
   path: string;
   modelNames: string;
-  removedPrefix: string;
+  removedPrefix: string; 
+  type: 'Names' | 'Values' | 'JSON';
+}
+
+export const CdpDefaultVariableQuery: Partial<CdpVariableQuery> = {
+  path: '',
+  modelNames: '',
+  removedPrefix: '', 
+  type: 'Names'
 }
 
 export interface CdpDataSourceOptions extends DataSourceJsonData {
