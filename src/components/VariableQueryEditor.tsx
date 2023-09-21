@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { CdpVariableQuery, CdpDefaultVariableQuery, } from './../types';
-import { InlineField, Input, Select, ActionMeta } from '@grafana/ui';
-import { SelectableValue } from '@grafana/data';
+import { CdpVariableQuery, CdpDefaultVariableQuery } from './../types';
+import { InlineField, Input, InlineSwitch } from '@grafana/ui';
 
 interface VariableQueryProps {
   query: CdpVariableQuery;
@@ -21,12 +20,11 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
       [event.currentTarget.name]: event.currentTarget.value,
     });
 
-  const handleSelectChange = (value: SelectableValue<string>, actionMeta: ActionMeta) => {
+  const handleSwitchChange = (event: React.FormEvent<HTMLInputElement>) =>
     setState({
       ...state,
-      type: value.value as CdpVariableQuery["type"],
+      [event.currentTarget.name]: event.currentTarget.checked,
     });
-  }
 
   return (
     <div className="gf-form-group">
@@ -60,15 +58,11 @@ export const VariableQueryEditor: React.FC<VariableQueryProps> = ({ onChange, qu
           placeholder="AppName.CompName."
         />
       </InlineField>
-      <InlineField label="Returns" labelWidth={16} tooltip="Return node names, node values or both in JSON">
-        <Select
-          value={state.type}
-          options={[
-            { label: 'Names', value: 'Names' },
-            { label: 'Values', value: 'Values' },
-            { label: 'JSON', value: 'JSON' }
-          ]}
-          onChange={handleSelectChange}
+      <InlineField label="Values" labelWidth={16} tooltip="Either return list of node names, or map of names and values">
+        <InlineSwitch
+          name="withValues"
+          value={state.withValues}
+          onChange={handleSwitchChange}
           onBlur={saveQuery}
         />
       </InlineField>

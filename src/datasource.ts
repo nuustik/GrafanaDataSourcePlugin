@@ -132,18 +132,29 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
     });
   }
 
-  async fetchValues(cdpPaths: string[], removedPrefix: string[]) {
+  async formatResult(cdpPaths: string[], removedPrefix: string[], withValues: boolean) {
     const promises = cdpPaths.map(async (path: string) => {
-      let node = await this.client.find(path);
-      let value = await node.requestValue();
       let p = path;
-
       let result = removedPrefix.filter(s => path.startsWith(s));
       if (result.length) {
         const longestPrefixLength = Math.max(...(result.map(el => el.length)));
         p = path.slice(longestPrefixLength);
       }
-      return {path: p, value: value};
+      let obj = {text: p};
+
+      if (withValues) {
+        let node = await this.client.find(path);
+        let value = await node.requestValue();
+        let p = path;
+
+        let result = removedPrefix.filter(s => path.startsWith(s));
+        if (result.length) {
+          const longestPrefixLength = Math.max(...(result.map(el => el.length)));
+          p = path.slice(longestPrefixLength);
+        }
+        obj = Object.assign(obj, { value: value });
+      }
+      return obj;
     });
     return await Promise.all(promises);
   }
@@ -193,21 +204,11 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
     const results = resolvedPaths.map(async (path: any) => {
       const cdpPaths = await this.fetchChildrenPaths(path);
       const filteredPaths = await this.filterByModelNames(cdpPaths, resolvedModelNames);
-      return await this.fetchValues(filteredPaths, resolvedPrefixes);
+      return await this.formatResult(filteredPaths, resolvedPrefixes, query.withValues);
     });
 
     const all = await Promise.all(results);
-    return all.flat(1).map((object: any) => {
-      if (query.type === "Names") {
-        return {text: object.path};
-      } else if (query.type === "Values") {
-        return {text: object.value};
-      } else {
-        return {text: object.path, value: '{text: '+object.path+', value: '+object.value+'}'};
-      }
-    }).filter((object: any) => {
-      return object.text !== undefined;
-    });
+    return all.flat(1);
   }
 
   query(options: DataQueryRequest<CdpQuery>): Observable<DataQueryResponse> {
