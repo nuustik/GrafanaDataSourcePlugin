@@ -6,6 +6,7 @@ import {
   DataSourceInstanceSettings,
   FieldType,
   LoadingState,
+  MetricFindValue,
 } from '@grafana/data';
 
 import { 
@@ -31,6 +32,7 @@ class NotificationListener {
   }
 
   applicationAcceptanceRequested = async (): Promise<void> => {
+    this.lastError = '';
     return Promise.resolve();
   }
 
@@ -46,22 +48,27 @@ class NotificationListener {
     });
   }
 
-  getLastError = async (result?: any): Promise<any> => {
+  getLastError = async (timeout?: number, result?: any): Promise<any> => {
+    if (timeout !== undefined && timeout <= 0) {
+      return "timeout occured";
+    }
     if (result !== undefined) {
       return result;
     }
     return new Promise((resolve) => setTimeout(resolve, 100))
-      .then(() => Promise.resolve(this.lastError)) 
-      .then((res: any) => this.getLastError(res));
+      .then(() => Promise.resolve(this.lastError))
+      .then((res: any) => this.getLastError(timeout !== undefined ? timeout - 100 : 0, res));
   }
 }
 
 export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
   client: any;
   notificationListener: any;
+  instanceSettings: DataSourceInstanceSettings<CdpDataSourceOptions>;
 
   constructor(instanceSettings: DataSourceInstanceSettings<CdpDataSourceOptions>) {
     super(instanceSettings);
+    this.instanceSettings = instanceSettings;
     this.notificationListener = new NotificationListener(instanceSettings)
     this.client = new studio.api.Client(instanceSettings.jsonData.host, this.notificationListener);
   }
@@ -145,13 +152,6 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
       if (withValues) {
         let node = await this.client.find(path);
         let value = await node.requestValue();
-        let p = path;
-
-        let result = removedPrefix.filter(s => path.startsWith(s));
-        if (result.length) {
-          const longestPrefixLength = Math.max(...(result.map(el => el.length)));
-          p = path.slice(longestPrefixLength);
-        }
         obj = Object.assign(obj, { value: value });
       }
       return obj;
@@ -194,7 +194,12 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
     }
   }
 
-  async metricFindQuery(query: CdpVariableQuery, options?: any) {
+  async metricFindQuery(query: CdpVariableQuery, options?: any): Promise<MetricFindValue[]> {
+    let error = await this.testConnection();
+    if (error) {
+      return Promise.reject(error);
+    }
+
     const resolvedPaths = this.resolveQueryPath(getTemplateSrv().replace(query.path, options.scopedVars));
     const resolvedPrefixes = this.resolveQueryPath(getTemplateSrv().replace(query.removedPrefix, options.scopedVars));
     const resolvedModelNames = this.resolveQueryPath(getTemplateSrv().replace(query.modelNames, options.scopedVars)).map((models: any) => {
@@ -208,7 +213,7 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
     });
 
     const all = await Promise.all(results);
-    return all.flat(1);
+    return Promise.resolve(all.flat(1));
   }
 
   query(options: DataQueryRequest<CdpQuery>): Observable<DataQueryResponse> {
@@ -249,7 +254,7 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
               node.unsubscribeFromValues(subscriptionFn);
             });
           }
-
+          
         });
         observables.push(observable);
       });
@@ -258,8 +263,14 @@ export class DataSource extends DataSourceApi<CdpQuery, CdpDataSourceOptions> {
     return merge(...observables);
   }
 
+  async testConnection() {
+    let listener = new NotificationListener(this.instanceSettings)
+    new studio.api.Client(this.instanceSettings.jsonData.host, listener, false).root();
+    return await listener.getLastError(5000);
+  }
+
   async testDatasource() {
-    const error = await this.notificationListener.getLastError();
+    const error = await this.testConnection();
     if (error.length === 0) {
       return { status: 'success', message: 'Success'};
     } else {
