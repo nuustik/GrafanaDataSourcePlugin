@@ -2,15 +2,15 @@
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
   "name": "CDP",
-  "id": "cdptech-cdp-datasource",
+  "id": "cdp-datasource",
   "metrics": true,
   "streaming": true,
   "backend": false,
   "info": {
     "description": "Data source plugin for fetching data from CDP",
     "author": {
-      "name": "CDP Technologies",
-      "url": "https://cdpstudio.com"
+      "name": "nuustik",
+      "url": "https://github.com/nuustik"
     },
     "keywords": ["cdp", "realtime", "automation", "canopen", "opcua", "mqtt", "modbus"],
     "logos": {
@@ -18,7 +18,7 @@
       "large": "img/logo.svg"
     },
     "links": [
-      {"name": "Source", "url": "https://github.com/CDPTechnologies/GrafanaDataSourcePlugin"}
+      {"name": "Source", "url": "https://github.com/nuustik/GrafanaDataSourcePlugin"}
     ],
     "screenshots": [
       {"name": "Overview", "path": "img/cdp-datasource-screenshot1.png"},
